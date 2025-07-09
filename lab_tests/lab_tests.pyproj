@@ -23,6 +23,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Data\Current\stimList_gencat_hydra_forAbe.py" />
+    <Compile Include="Output\CorrelationAnalyzer.py" />
     <Compile Include="Prep\Copilot_Demos\example_data_usage.py" />
     <Compile Include="Model\MultipleModels.py" />
     <Compile Include="Prep\BaseConverter.py" />
@@ -52,11 +53,14 @@
     <Folder Include="Prep\Legacy\" />
     <Folder Include="Prep\Copilot_Demos\" />
     <Folder Include="Results\" />
+    <Folder Include="results\Analysis\" />
+    <Folder Include="results\Analysis\plots\" />
     <Folder Include="Results\Models\" />
     <Folder Include="Results\Data\" />
     <Folder Include="results\models\p_024lr_96bs_22i_400h\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".gitignore" />
     <Content Include="Data\ReferenceMatrices\cooc-jaccard-lat.csv" />
     <Content Include="Data\ReferenceMatrices\cooc-jaccard-mod.csv" />
     <Content Include="Data\Current\stimList_gencat_hydra_forAbe.js" />
@@ -65,6 +69,9 @@
     <Content Include="Data\Old\training_generated.txt" />
     <Content Include="Data\Old\trainPats_22dim_2cats_good.txt" />
     <Content Include="Prep\README.md" />
+    <Content Include="results\Analysis\correlation_summary.txt" />
+    <Content Include="results\Analysis\plots\correlation_trends_with_loss.png" />
+    <Content Include="results\Analysis\plots\peak_correlation_matrices.png" />
     <Content Include="Results\Data\js_multiple_20e_22i_400h.npz" />
     <Content Include="results\data\p_024lr_96bs_20e_22i_400h.npz" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e1.pt" />
@@ -80,8 +87,28 @@
     <Content Include="results\models\p_024lr_96bs_22i_400h\e19.pt" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e2.pt" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e20.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e21.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e22.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e23.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e24.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e25.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e26.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e27.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e28.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e29.pt" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e3.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e30.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e31.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e32.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e33.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e34.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e35.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e36.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e37.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e38.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e39.pt" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e4.pt" />
+    <Content Include="results\models\p_024lr_96bs_22i_400h\e40.pt" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e5.pt" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e6.pt" />
     <Content Include="results\models\p_024lr_96bs_22i_400h\e7.pt" />

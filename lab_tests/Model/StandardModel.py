@@ -34,7 +34,7 @@ class StandardModel:
             l_hidden_corr = PearsonEval.test_and_compare_lattice(self.model, self.num_features, lattice_reference_matrix, hidden=True)
 
             output_matrix = PearsonEval.generate_output_distributions(self.model, 2 * self.num_features)
-            hidden_matrix = RowWiseJSEval.matrix_row_normalize(PearsonEval.generate_hidden_distributions(self.model, 2 * self.num_features))
+            hidden_matrix = PearsonEval.generate_hidden_distributions(self.model, 2 * self.num_features)
 
             m_output_corrs.append(m_output_corr)
             l_output_corrs.append(l_output_corr)
