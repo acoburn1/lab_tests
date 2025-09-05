@@ -7,8 +7,8 @@ import Eval.RowWiseJSEval as RowWiseJSEval
 import Tests.RatioExemplar as RE
 
 class StandardModel:
-    def __init__(self, num_features, hidden_layer_size, batch_size, num_epochs, learning_rate, loss_fn):
-        self.model = NeuralNetwork(num_features, hidden_layer_size)
+    def __init__(self, num_features, hidden_layer_size, batch_size, num_epochs, learning_rate, loss_fn, first_h=False):
+        self.model = NeuralNetwork(num_features, hidden_layer_size, first_h)
         self.num_features = num_features
         self.hidden_layer_size = hidden_layer_size
         self.batch_size = batch_size
@@ -39,8 +39,8 @@ class StandardModel:
             "hidden_matrices": [],
             "output_ratio_tests": [],
             "hidden_ratio_tests": [],
-            "output_activation_tests": [],
-            "hidden_activation_tests": []
+            "output_activation_exemplar_tests": [],
+            "output_activation_onehot_tests": []
         }
 
         if include_e0:
@@ -114,11 +114,11 @@ class StandardModel:
         if data_params.get("hidden_ratio_tests", False):
             results["hidden_ratio_test"] = RE.test_ratios(self.model, hidden=True)
         
-        if data_params.get("output_activation_tests", False):
-            results["output_activation_test"] = RE.test_activations(self.model, self.num_features, hidden=False)
+        if data_params.get("output_activation_exemplar_tests", False):
+            results["output_activation_exemplar_test"] = RE.test_activations(self.model, self.num_features, one_hot=False)
         
-        if data_params.get("hidden_activation_tests", False):
-            results["hidden_activation_test"] = RE.test_activations(self.model, self.num_features, hidden=True)
+        if data_params.get("output_activation_onehot_tests", False):
+            results["output_activation_onehot_test"] = RE.test_activations(self.model, self.num_features, one_hot=True)
         
         return results
 

@@ -108,6 +108,234 @@ def plot_stats_with_confidence_intervals(lr_str, data_dir, data_parameters, save
     else:
         plt.close()
 
+def plot_activation_tests_with_confidence_intervals(lr_str, data_dir, save_dir="Results/Analysis/Plots/Activations", show_plots=False, include_e0=False):
+    os.makedirs(save_dir, exist_ok=True)
+
+    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    if not npz_files:
+        print(f"No NPZ files found in directory: {data_dir}")
+        return
+
+    # Only use output activation test datasets
+    candidate_keys = [
+        'output_activation_exemplar_tests',
+        'output_activation_onehot_tests'
+    ]
+
+    available_params = set()
+    for npz_file in npz_files:
+        try:
+            data = np.load(npz_file, allow_pickle=True)
+            for key in candidate_keys:
+                if key in data and data[key] is not None:
+                    available_params.add(key)
+        except Exception as ex:
+            print(f"Warning: Failed to read {npz_file}: {ex}")
+
+    if not available_params:
+        print("No output activation test datasets detected in NPZ files.")
+        return
+
+    # Process each dataset to extract mod_avg and lat_avg components
+    processed_datasets = {}
+    
+    for param in available_params:
+        # Extract data for this parameter across all files
+        param_data_list = []
+        
+        for npz_file in npz_files:
+            try:
+                data = np.load(npz_file, allow_pickle=True)
+                if param in data and data[param] is not None:
+                    param_data = data[param]
+                    
+                    # Extract mod_avg and lat_avg for each epoch
+                    mod_avg_epochs = []
+                    lat_avg_epochs = []
+                    
+                    for epoch_data in param_data:
+                        if isinstance(epoch_data, dict) and 'mod_avg' in epoch_data and 'lat_avg' in epoch_data:
+                            mod_avg_epochs.append(epoch_data['mod_avg'])
+                            lat_avg_epochs.append(epoch_data['lat_avg'])
+                        else:
+                            # Handle legacy format or missing data
+                            mod_avg_epochs.append(np.nan)
+                            lat_avg_epochs.append(np.nan)
+                    
+                    param_data_list.append({
+                        'mod_avg': mod_avg_epochs,
+                        'lat_avg': lat_avg_epochs
+                    })
+            except Exception as ex:
+                print(f"Warning: Failed to process {param} from {npz_file}: {ex}")
+        
+        if param_data_list:
+            processed_datasets[param] = param_data_list
+
+    if not processed_datasets:
+        print("No valid activation test data found.")
+        return
+
+    # Create statistics for each component of each dataset
+    from Statistics.StatsProducer import StatsProducer, AggregateStatsObject
+    
+    stats_producer = StatsProducer(ci=0.95)
+    stats_objects_dict = {}
+    
+    for param, param_data_list in processed_datasets.items():
+        # Extract mod_avg data across all models
+        mod_avg_data = []
+        lat_avg_data = []
+        
+        for model_data in param_data_list:
+            mod_avg_data.append(model_data['mod_avg'])
+            lat_avg_data.append(model_data['lat_avg'])
+        
+        # Convert to numpy arrays and create stats objects
+        if mod_avg_data:
+            mod_avg_array = np.array(mod_avg_data)
+            lat_avg_array = np.array(lat_avg_data)
+            
+            # Filter out models with all NaN values
+            mod_valid_models = ~np.all(np.isnan(mod_avg_array), axis=1)
+            lat_valid_models = ~np.all(np.isnan(lat_avg_array), axis=1)
+            
+            if np.any(mod_valid_models):
+                mod_filtered = mod_avg_array[mod_valid_models]
+                mod_epoch_stats = stats_producer._get_epoch_stats(mod_filtered)
+                stats_objects_dict[f"{param}_mod"] = AggregateStatsObject(mod_epoch_stats)
+            
+            if np.any(lat_valid_models):
+                lat_filtered = lat_avg_array[lat_valid_models]
+                lat_epoch_stats = stats_producer._get_epoch_stats(lat_filtered)
+                stats_objects_dict[f"{param}_lat"] = AggregateStatsObject(lat_epoch_stats)
+            
+            # Calculate combined average (mod_avg + lat_avg) / 2
+            if np.any(mod_valid_models) and np.any(lat_valid_models):
+                # Use intersection of valid models for fair comparison
+                common_valid = mod_valid_models & lat_valid_models
+                if np.any(common_valid):
+                    mod_common = mod_avg_array[common_valid]
+                    lat_common = lat_avg_array[common_valid]
+                    avg_combined = (mod_common + lat_common) / 2
+                    avg_epoch_stats = stats_producer._get_epoch_stats(avg_combined)
+                    stats_objects_dict[f"{param}_avg"] = AggregateStatsObject(avg_epoch_stats)
+
+    if not stats_objects_dict:
+        print("No statistics objects generated for activation tests.")
+        return
+
+    # Prepare plotting
+    label_map = {
+        'output_activation_exemplar_tests_mod': 'Output Exemplar (Modular)',
+        'output_activation_exemplar_tests_lat': 'Output Exemplar (Lattice)',
+        'output_activation_exemplar_tests_avg': 'Output Exemplar (Average)',
+        'output_activation_onehot_tests_mod': 'Output One-hot (Modular)',
+        'output_activation_onehot_tests_lat': 'Output One-hot (Lattice)',
+        'output_activation_onehot_tests_avg': 'Output One-hot (Average)'
+    }
+
+    color_map = {
+        'output_activation_exemplar_tests_mod': 'tab:blue',
+        'output_activation_exemplar_tests_lat': 'tab:red',
+        'output_activation_exemplar_tests_avg': 'tab:purple',
+        'output_activation_onehot_tests_mod': 'tab:green',
+        'output_activation_onehot_tests_lat': 'tab:orange',
+        'output_activation_onehot_tests_avg': 'tab:brown'
+    }
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    # Determine epoch axis from the first stats object
+    first_stats_obj = next(iter(stats_objects_dict.values()))
+    num_epochs = len(first_stats_obj.means)
+    epochs = range(num_epochs) if include_e0 else range(1, num_epochs + 1)
+
+    # Track y-limits dynamically from CI ranges
+    y_min = float('inf')
+    y_max = float('-inf')
+
+    # Ensure deterministic plotting order
+    for i, key in enumerate(sorted(stats_objects_dict.keys())):
+        stats_obj = stats_objects_dict[key]
+        color = color_map.get(key, f'C{i}')
+        label = label_map.get(key, key.replace('_', ' ').title())
+
+        # Use different line styles for different components
+        if '_mod' in key:
+            linestyle = '-'
+            marker = 'o'
+        elif '_lat' in key:
+            linestyle = '--'
+            marker = 's'
+        elif '_avg' in key:
+            linestyle = ':'
+            marker = '^'
+            linewidth = 3
+        else:
+            linestyle = '-'
+            marker = 'o'
+            linewidth = 2
+
+        linewidth = 3 if '_avg' in key else 2
+
+        ax.plot(epochs, stats_obj.means, color=color, linewidth=linewidth, 
+               label=label, marker=marker, markersize=4, linestyle=linestyle)
+
+        for epoch, mean, ci_lower, ci_upper in zip(epochs, stats_obj.means, stats_obj.ci_lowers, stats_obj.ci_uppers):
+            ax.plot([epoch, epoch], [ci_lower, ci_upper], color=color, linewidth=1, alpha=0.7)
+            y_min = min(y_min, ci_lower)
+            y_max = max(y_max, ci_upper)
+
+    # Labels and formatting
+    ax.set_xlabel('Epoch', fontsize=12)
+    ax.set_ylabel('Activation Test Score', fontsize=12)
+
+    # Set y-limits with small padding
+    if y_min == float('inf') or y_max == float('-inf'):
+        y_min, y_max = -1.0, 1.0
+    pad = max(0.02, 0.05 * (y_max - y_min if y_max > y_min else 1.0))
+    ax.set_ylim(y_min - pad, y_max + pad)
+
+    ax.grid(True, alpha=0.3)
+
+    # X ticks similar to other plots
+    max_epoch = max(epochs)
+    min_epoch = min(epochs)
+
+    major_ticks = list(range(10, max_epoch + 1, 10))
+    if min_epoch not in major_ticks:
+        major_ticks = [min_epoch] + major_ticks
+    if max_epoch not in major_ticks and (max_epoch % 10 != 0):
+        major_ticks.append(max_epoch)
+
+    medium_ticks = [x for x in range(5, max_epoch + 1, 5) if x not in major_ticks and x >= min_epoch]
+    minor_ticks = [x for x in epochs if x not in major_ticks and x not in medium_ticks]
+
+    ax.set_xticks(major_ticks)
+    ax.set_xticks(medium_ticks, minor=False)
+    ax.set_xticks(minor_ticks, minor=True)
+    ax.tick_params(which='major', length=8, width=2, labelsize=10)
+    ax.tick_params(which='minor', length=4, width=1)
+
+    for tick in medium_ticks:
+        ax.axvline(x=tick, ymin=0, ymax=0.02, color='black', linewidth=1.5, clip_on=False)
+
+    ax.set_xlim(min_epoch, max_epoch)
+
+    ax.legend(loc='best', fontsize=10)
+
+    plt.title(f'Output Activation Test Means Across Epochs, LR = 0.0{lr_str}', fontsize=14)
+    plt.tight_layout()
+
+    out_path = os.path.join(save_dir, f"output_activation_tests_0{lr_str}.png")
+    plt.savefig(out_path, dpi=300, bbox_inches='tight')
+
+    if show_plots:
+        plt.show()
+    else:
+        plt.close()
+
 def plot_s_curve(data_dir, hidden=True, save_dir="Results/Analysis/Plots/S-Curves", show_plots=False, epoch=-1, include_e0=False):
     os.makedirs(save_dir, exist_ok=True)
     
@@ -582,12 +810,6 @@ def plot_33s(data_dir, hidden=True, save_dir="Results/Analysis/Plots/3-3",
         plt.show()
     else:
         plt.close()
-    
-    # Generate the correlation plot as well
-    plot_33s_correlations(data_dir, hidden, save_dir, show_plots, start_epoch, num_epochs, include_e0)
-    
-    # Generate the scatter plot as well
-    plot_33s_scatter(data_dir, hidden, save_dir, show_plots, start_epoch, num_epochs, include_e0)
 
 def plot_33s_correlations(data_dir, hidden=True, save_dir="Results/Analysis/Plots/3-3", 
                          show_plots=False, start_epoch=0, num_epochs=None, include_e0=False, alpha=0.05):
