@@ -31,6 +31,7 @@ class StandardModel:
     def train_eval_test_P(self, dataloader, modular_reference_matrix, lattice_reference_matrix, data_params, print_data=False, include_e0=False):
         result_data = {
             "losses": [],
+            "hidden_activations": [],
             "m_output_corrs": [],
             "l_output_corrs": [],
             "m_hidden_corrs": [],
@@ -90,6 +91,9 @@ class StandardModel:
     def _evaluate_model(self, modular_reference_matrix, lattice_reference_matrix, data_params):
         results = {}
         
+        if data_params.get("hidden_activations", False):
+            results["hidden_activation"] = PearsonEval.generate_hidden_activations(self.model, 2*self.num_features)
+
         if data_params.get("m_output_corrs", False):
             results["m_output_corr"] = PearsonEval.test_and_compare_modular(self.model, self.num_features, modular_reference_matrix, hidden=False)
         

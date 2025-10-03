@@ -1,7 +1,7 @@
 from sys import path_importer_cache
 from turtle import st
 import torch
-from torch import nn
+from torch import kl_div, nn
 import time
 import numpy as np
 from Model.NeuralNetwork import NeuralNetwork
@@ -14,6 +14,7 @@ import Output.StatOutput as StatOutput
 import Output.CorrelationAnalyzer as CorrelationAnalyzer
 import Tests.RatioExemplar as RE
 import Output.RatioExemplarOutput as REO
+import Output.PCAOutput as PCAOutput
 
 ### globals ---
 
@@ -29,6 +30,7 @@ NUM_TRAINING_TRIALS = 96
 INCLUDE_E0 = True
 
 DATA_PARAMS = { "losses": True,
+                "hidden_activations": True,
                 "m_output_corrs": True,
                 "l_output_corrs": True,
                 "m_hidden_corrs": True,
@@ -41,6 +43,7 @@ DATA_PARAMS = { "losses": True,
                 "output_activation_onehot_tests": True}
 
 CORR_DATA_PARAMS = { "losses": True,
+                "hidden_activations": False,
                 "m_output_corrs": True,
                 "l_output_corrs": True,
                 "m_hidden_corrs": True,
@@ -68,7 +71,6 @@ for i in range(1, 51):
     results = model.train_eval_test_P(dataloader, modular_reference_matrix, lattice_reference_matrix, DATA_PARAMS, include_e0=INCLUDE_E0)
     np.savez(f"{DATA_DIR}/p_m{i}.npz", **results)
     print(i)
-
 StatOutput.plot_stats_with_confidence_intervals(lr_str="4_50m", data_dir=DATA_DIR, save_dir="Results/Analysis/Plots/one_h/Correlations", data_parameters=CORR_DATA_PARAMS, include_e0=INCLUDE_E0)
 StatOutput.plot_33s(data_dir=DATA_DIR, save_dir="Results/Analysis/Plots/one_h/3-3", include_e0=INCLUDE_E0)
 
@@ -84,11 +86,15 @@ StatOutput.plot_33s(data_dir=DATA_DIR, hidden=False, save_dir="Results/Analysis/
 for i in range(0, 61):
     StatOutput.plot_scatter_models(data_dir=DATA_DIR, epoch=i, save_dir="Results/Analysis/Plots/one_h/scatter_models", include_e0=INCLUDE_E0)
 
-StatOutput.plot_scatter_models_by_set(data_dir=DATA_DIR, epoch=15, save_dir="Results/Analysis/Plots/one_h/scatter_models", include_e0=INCLUDE_E0)
-StatOutput.plot_scatter_activation_tests(data_dir=DATA_DIR, epoch=15, save_dir="Results/Analysis/Plots/one_h/scatter_models", include_e0=INCLUDE_E0)
-StatOutput.plot_activation_vs_correlation(data_dir=DATA_DIR, category='mod', epoch=15, save_dir="Results/Analysis/Plots/one_h/category_strength-structure_learning", include_e0=INCLUDE_E0)
-StatOutput.plot_activation_vs_correlation(data_dir=DATA_DIR, category='lat', epoch=15, save_dir="Results/Analysis/Plots/one_h/category_strength-structure_learning", include_e0=INCLUDE_E0)
+#StatOutput.plot_structure_learning_vs_generalization(data_dir=DATA_DIR, epoch=15, save_dir="Results/Analysis/Plots/one_h/structure_learning-generalization", include_e0=INCLUDE_E0)
+#StatOutput.plot_generalization_vs_category_strength(data_dir=DATA_DIR, epoch=15, save_dir="Results/Analysis/Plots/one_h/generalization-category_strength", include_e0=INCLUDE_E0)
+#StatOutput.plot_structure_learning_vs_category_strength(data_dir=DATA_DIR, epoch=15, save_dir="Results/Analysis/Plots/one_h/category_strength-structure_learning", include_e0=INCLUDE_E0)
+
+for i in range(0, 61):
+    PCAOutput.plot_generalization_vs_dimensionality_diff(data_dir=DATA_DIR, epoch=i, save_dir="Results/Analysis/Plots/one_h/generalization_vs_dimensionality_diff", include_e0=INCLUDE_E0)
 """
 
-StatOutput.plot_feature_activation_over_epochs(data_dir=DATA_DIR, category='mod', save_dir="Results/Analysis/Plots/one_h/feature_activations", include_e0=INCLUDE_E0)
-StatOutput.plot_feature_activation_over_epochs(data_dir=DATA_DIR, category='lat', save_dir="Results/Analysis/Plots/one_h/feature_activations", include_e0=INCLUDE_E0)
+d = np.load(f"{DATA_DIR}/p_m1.npz", allow_pickle=True)
+for i in range(0, 61):
+    km, kl = PCAOutput.get_pcns_mod_lat(d["hidden_activations"][i], NUM_FEATURES)
+    print(str(i) + ": mod-" + str(km) + ", lat-" + str(kl))

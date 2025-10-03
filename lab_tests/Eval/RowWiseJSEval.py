@@ -2,12 +2,12 @@ from scipy.spatial.distance import jensenshannon
 import torch
 import numpy
 
-def test_and_compare_modular(model, num_features, reference_matrix):                                                                                    ###             
-    output_matrix = generate_distributions(model, 2*num_features)                                                                                       ###             
-    return eval_matrix_average_similarity(output_matrix[:num_features, :num_features], reference_matrix), output_matrix[:num_features, :num_features]   ### ASSUMING 0-10 mod & 11-21 lat
-def test_and_compare_lattice(model, num_features, reference_matrix):                                                                                    ###             
-    output_matrix = generate_distributions(model, 2*num_features)                                                                                       ###             
-    return eval_matrix_average_similarity(output_matrix[num_features:, num_features:], reference_matrix), output_matrix[num_features:, num_features:]   ###             
+def test_and_compare_modular(model, num_features, reference_matrix):                                                                                 
+    output_matrix = generate_distributions(model, 2*num_features)                                                                                    
+    return eval_matrix_average_similarity(output_matrix[:num_features, :num_features], reference_matrix), output_matrix[:num_features, :num_features]
+def test_and_compare_lattice(model, num_features, reference_matrix):                                                                                 
+    output_matrix = generate_distributions(model, 2*num_features)                                                                                    
+    return eval_matrix_average_similarity(output_matrix[num_features:, num_features:], reference_matrix), output_matrix[num_features:, num_features:]
 def eval_matrix_average_similarity(m1, m2):
     avg, distances = eval_matrix_average_js(m1, m2)
     similarities = []
