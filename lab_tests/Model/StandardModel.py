@@ -1,10 +1,12 @@
 from numpy import save
+from scipy import special
 from Model.NeuralNetwork import NeuralNetwork
 import torch
 import os
 import Eval.PearsonEval as PearsonEval
 import Eval.Outdated.RowWiseJSEval as RowWiseJSEval
 import Tests.RatioExemplar as RE
+import Prep.SpecialDataLoader as SDL
 
 class StandardModel:
     def __init__(self, num_features, hidden_layer_size, batch_size, num_epochs, learning_rate, loss_fn, first_h=False):
@@ -28,7 +30,7 @@ class StandardModel:
                 self.optimizer.step()
                 total_loss += loss.item()
 
-    def train_eval_test_P(self, dataloader, modular_reference_matrix, lattice_reference_matrix, data_params, print_data=False, include_e0=False):
+    def train_eval_test_P(self, dataloader, modular_reference_matrix, lattice_reference_matrix, data_params, include_e0=False, alt=False):
         result_data = {
             "losses": [],
             "hidden_activations": [],
@@ -45,18 +47,23 @@ class StandardModel:
         }
 
         if include_e0:
-            initial_results = self._evaluate_model(modular_reference_matrix, lattice_reference_matrix, data_params)
-            
+            initial_results = self._evaluate_model(modular_reference_matrix, lattice_reference_matrix, data_params, alt)
+            initial_results["losses"] = 0.0
             for key in result_data.keys():
-                if key == "losses":
-                    result_data[key].append(0)
-                else:
-                    eval_key = key[:-1] if key.endswith('s') else key[:-1]
-                    result_data[key].append(initial_results.get(eval_key, None))
+                result_data[key].append(initial_results[key])
 
+        special_dl = isinstance(dataloader, SDL.SpecialDataLoader)
+
+        if special_dl:
+            dataloader.reset_appearances()
         for epoch in range(self.num_epochs):
             total_loss = 0
-            for batch_X, batch_Y in dataloader:
+            if special_dl:
+                epoch_loader = dataloader.get_special_dataloader()
+            else:
+                epoch_loader = dataloader
+            for batch_X, batch_Y in epoch_loader:
+                #flat = batch_X.cpu().numpy()       # uncomment to debug batch data
                 pred = self.model(batch_X)
                 loss = self.loss_fn(pred, batch_Y)
                 self.optimizer.zero_grad()
@@ -64,19 +71,11 @@ class StandardModel:
                 self.optimizer.step()
                 total_loss += loss.item()
 
-            epoch_results = self._evaluate_model(modular_reference_matrix, lattice_reference_matrix, data_params)
+            epoch_results = self._evaluate_model(modular_reference_matrix, lattice_reference_matrix, data_params, alt)
+            epoch_results["losses"] = total_loss
             
             for key in result_data.keys():
-                if key == "losses":
-                    result_data[key].append(total_loss)
-                else:
-                    eval_key = key[:-1] if key.endswith('s') else key[:-1]
-                    result_data[key].append(epoch_results.get(eval_key, None))
-
-            if print_data and data_params.get("m_output_corrs", False) and data_params.get("l_output_corrs", False):
-                m_corr = epoch_results.get("m_output_corr", "N/A")
-                l_corr = epoch_results.get("l_output_corr", "N/A")
-                print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {total_loss:.7f}, Pearson correlation (modular): {m_corr:.3f}, Pearson correlation (lattice): {l_corr:.3f}")
+                result_data[key].append(epoch_results[key])
 
         if include_e0 and data_params.get("losses", False) and len(result_data["losses"]) > 1:
             result_data["losses"][0] = result_data["losses"][1]
@@ -88,41 +87,41 @@ class StandardModel:
         
         return filtered_results
 
-    def _evaluate_model(self, modular_reference_matrix, lattice_reference_matrix, data_params):
+    def _evaluate_model(self, modular_reference_matrix, lattice_reference_matrix, data_params, alt):
         results = {}
         
         if data_params.get("hidden_activations", False):
-            results["hidden_activation"] = PearsonEval.generate_hidden_activations(self.model, 2*self.num_features)
+            results["hidden_activations"] = PearsonEval.generate_hidden_activations(self.model, 2*self.num_features)
 
         if data_params.get("m_output_corrs", False):
-            results["m_output_corr"] = PearsonEval.test_and_compare_modular(self.model, self.num_features, modular_reference_matrix, hidden=False)
+            results["m_output_corrs"] = PearsonEval.test_and_compare_modular(self.model, self.num_features, modular_reference_matrix, hidden=False)
         
         if data_params.get("l_output_corrs", False):
-            results["l_output_corr"] = PearsonEval.test_and_compare_lattice(self.model, self.num_features, lattice_reference_matrix, hidden=False)
+            results["l_output_corrs"] = PearsonEval.test_and_compare_lattice(self.model, self.num_features, lattice_reference_matrix, hidden=False)
         
         if data_params.get("m_hidden_corrs", False):
-            results["m_hidden_corr"] = PearsonEval.test_and_compare_modular(self.model, self.num_features, modular_reference_matrix, hidden=True)
+            results["m_hidden_corrs"] = PearsonEval.test_and_compare_modular(self.model, self.num_features, modular_reference_matrix, hidden=True)
         
         if data_params.get("l_hidden_corrs", False):
-            results["l_hidden_corr"] = PearsonEval.test_and_compare_lattice(self.model, self.num_features, lattice_reference_matrix, hidden=True)
+            results["l_hidden_corrs"] = PearsonEval.test_and_compare_lattice(self.model, self.num_features, lattice_reference_matrix, hidden=True)
 
         if data_params.get("output_matrices", False):
-            results["output_matrix"] = PearsonEval.generate_output_distributions(self.model, 2 * self.num_features)
+            results["output_matrices"] = PearsonEval.generate_output_distributions(self.model, 2 * self.num_features)
         
         if data_params.get("hidden_matrices", False):
-            results["hidden_matrix"] = PearsonEval.generate_hidden_distributions(self.model, 2 * self.num_features)
+            results["hidden_matrices"] = PearsonEval.generate_hidden_distributions(self.model, 2 * self.num_features)
 
         if data_params.get("output_ratio_tests", False):
-            results["output_ratio_test"] = RE.test_ratios(self.model, hidden=False)
-        
+            results["output_ratio_tests"] = RE.test_ratios(self.model, hidden=False, alt=alt)
+
         if data_params.get("hidden_ratio_tests", False):
-            results["hidden_ratio_test"] = RE.test_ratios(self.model, hidden=True)
+            results["hidden_ratio_tests"] = RE.test_ratios(self.model, hidden=True, alt=alt)
         
         if data_params.get("output_activation_exemplar_tests", False):
-            results["output_activation_exemplar_test"] = RE.test_activations(self.model, self.num_features, one_hot=False)
+            results["output_activation_exemplar_tests"] = RE.test_activations(self.model, self.num_features, one_hot=False, alt=alt)
         
         if data_params.get("output_activation_onehot_tests", False):
-            results["output_activation_onehot_test"] = RE.test_activations(self.model, self.num_features, one_hot=True)
+            results["output_activation_onehot_tests"] = RE.test_activations(self.model, self.num_features, one_hot=True, alt=alt)
         
         return results
 

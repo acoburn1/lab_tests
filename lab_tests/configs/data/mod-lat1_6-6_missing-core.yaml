@@ -1,0 +1,8 @@
+alt: false
+training_name: mod-lat1_6-6_missing-core
+special_dl: false
+
+num_mod_trials: 24
+num_total_trials: 48
+
+generate_rms: true

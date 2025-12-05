@@ -26,12 +26,39 @@ lattice_exemplars = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0
                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1],
                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1]]
 
-ratio_trials = DataUtils.generate_ratio_trials()
+alt_mod_exemplars = [[1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                     [1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
 
-def test_ratios(model, hidden: bool=False, ratio: str="all"):
+alt_lattice_exemplars = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]]
+
+reg_ratio_trials = DataUtils.generate_ratio_trials()
+alt_ratio_trials = DataUtils.generate_ratio_trials("Data/Current/ratiotrials_alt.csv")
+
+def test_ratios(model, hidden: bool=False, ratio: str="all", alt: bool=False):
+    if alt:
+        ratio_trials = alt_ratio_trials
+    else:
+        ratio_trials = reg_ratio_trials
     ratios = ratio_trials.keys() if ratio == "all" else [ratio]
     test_data = {}
-    exemplar_results = generate_exemplar_results(model, hidden)
+    exemplar_results = generate_exemplar_results(model, hidden, alt=alt)
     for ratio in ratios:
         trial_sets = ratio_trials[ratio]
         ratio_data = {}
@@ -47,18 +74,18 @@ def test_ratios(model, hidden: bool=False, ratio: str="all"):
         test_data[ratio] = ratio_data
     return test_data
 
-def test_activations(model, num_features, one_hot: bool=False):
-    results = generate_results(model, np.eye(2*num_features)) if one_hot else generate_exemplar_results(model)
+def test_activations(model, num_features, one_hot: bool=False, alt: bool=False):
+    results = generate_results(model, np.eye(2*num_features)) if one_hot else generate_exemplar_results(model, alt=alt)
     mod_results = results[:num_features] if one_hot else results["mod"]
     lat_results = results[num_features:] if one_hot else results["lat"]
     mod_avg = np.mean([np.mean(mod_result[:num_features]) - np.mean(mod_result[num_features:]) for mod_result in mod_results])
     lat_avg = np.mean([np.mean(lat_result[num_features:]) - np.mean(lat_result[:num_features]) for lat_result in lat_results])
     return {"mod_avg": mod_avg, "lat_avg": lat_avg, "mod_by_feature": np.mean(mod_results, axis=0), "lat_by_feature": np.mean(lat_results, axis=0)}
 
-def generate_exemplar_results(model, hidden: bool=False):
+def generate_exemplar_results(model, hidden: bool=False, alt: bool=False):
     results = {}
-    results["mod"] = generate_results(model, modular_exemplars, hidden)
-    results["lat"] = generate_results(model, lattice_exemplars, hidden)
+    results["mod"] = generate_results(model, modular_exemplars, hidden) if not alt else generate_results(model, alt_mod_exemplars, hidden)
+    results["lat"] = generate_results(model, lattice_exemplars, hidden) if not alt else generate_results(model, alt_lattice_exemplars, hidden)
     return results
 
 def generate_results(model, inputs, hidden: bool=False):

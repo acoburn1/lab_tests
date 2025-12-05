@@ -1,12 +1,27 @@
 from .DataPreparer import DataPreparer
 from .FormatConverters import TabDelimitedConverter, PythonListConverter
+from typing import List, Tuple
 import numpy as np
 import csv
 import os
 
+def training_csv_to_array(filename: str, num_features: int = 11) -> Tuple[List[List[int]], List[List[int]]]:
+    train_inputs, train_outputs = [], []
+        
+    with open(filename, 'r') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            inp = [int(row[f'input_{i}']) for i in range(2*num_features)]
+            out = [int(row[f'output_{i}']) for i in range(2*num_features)]
+                
+            if row['type'] == 'train':
+                train_inputs.append(inp)
+                train_outputs.append(out)
+        
+    return train_inputs, train_outputs
+
 def load_tab_delimited_data(filename: str, num_features: int = 11) -> DataPreparer:
     return DataPreparer.from_tab_delimited(filename, num_features)
-
 
 def load_python_list_data(filename: str, num_features: int = 11) -> DataPreparer:
     return DataPreparer.from_python_lists(filename, num_features)

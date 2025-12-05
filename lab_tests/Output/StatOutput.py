@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 from scipy.stats import t, pearsonr
 from Statistics.StatsProducer import StatsProducer, AggregateStatsObject
 
+
+def get_significant_epochs(data_dir, data_parameters, degf):
+    stats_producer = StatsProducer(data_parameters)
+    stats_objects_dict = stats_producer.get_stats(data_dir)
+
+    return np.argsort(np.abs(np.array(stats_objects_dict['m_hidden_corrs'].means[2:]) - np.array(stats_objects_dict['l_hidden_corrs'].means[2:])))[:degf] + 2
+
 def plot_stats_with_confidence_intervals(lr_str, data_dir, data_parameters, save_dir="Results/Analysis/Plots/Correlations", show_plots=False, include_e0=False):
     os.makedirs(save_dir, exist_ok=True)
     
@@ -336,7 +343,7 @@ def plot_activation_tests_with_confidence_intervals(lr_str, data_dir, save_dir="
     else:
         plt.close()
 
-def plot_s_curve(data_dir, hidden=True, save_dir="Results/Analysis/Plots/S-Curves", show_plots=False, epoch=-1, include_e0=False):
+def plot_s_curve(data_dir, hidden=True, save_dir="Results/Analysis/Plots/S-Curves", show_plots=False, epoch=-1, include_e0=False, alt=False):
     os.makedirs(save_dir, exist_ok=True)
     
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
@@ -357,6 +364,18 @@ def plot_s_curve(data_dir, hidden=True, save_dir="Results/Analysis/Plots/S-Curve
         '5:1': 5,
         '6:0': 6
     }
+
+    if alt:
+        x_labels = ['0:5\n(all-lat)', '1:4\n(lat-heavy)', '2:3\n(lat-heavy)', '2:2\n(even)', '3:2\n(mod-heavy)', '4:1\n(mod-heavy)', '5:0\n(all-mod)']
+        ratio_to_position = {
+            '0:5': 0,
+            '1:4': 1, 
+            '2:3': 2,
+            '2:2': 3,
+            '3:2': 4,
+            '4:1': 5,
+            '5:0': 6
+        }
     
     category_accuracies = {pos: [] for pos in x_positions}
     
@@ -593,7 +612,7 @@ def plot_difference_stats_with_confidence_intervals(lr_str, data_dir, data_param
         plt.close()
 
 def plot_33s(data_dir, hidden=True, save_dir="Results/Analysis/Plots/3-3", 
-                        show_plots=False, start_epoch=0, num_epochs=None, include_e0=False):
+                        show_plots=False, start_epoch=0, num_epochs=None, include_e0=False, alt=False):
     """
     Plot 3:3 ratio trial data across epochs with different colored lines for each set label.
     
@@ -606,6 +625,8 @@ def plot_33s(data_dir, hidden=True, save_dir="Results/Analysis/Plots/3-3",
     - num_epochs: Number of epochs to include (if None, use all available)
     - include_e0: Whether to include epoch 0 in the plot
     """
+    ratio = "3:3" if not alt else "2:2"
+
     os.makedirs(save_dir, exist_ok=True)
     
     npz_files = sorted(glob.glob(os.path.join(data_dir, "*.npz")))  # Sort for consistency
@@ -633,8 +654,8 @@ def plot_33s(data_dir, hidden=True, save_dir="Results/Analysis/Plots/3-3",
         # Check what set names are available in 3:3 data
         for epoch_idx in range(len(test_data)):
             epoch_data = test_data[epoch_idx]
-            if '3:3' in epoch_data:
-                ratio_data = epoch_data['3:3']
+            if ratio in epoch_data:
+                ratio_data = epoch_data[ratio]
                 all_set_names.update(ratio_data.keys())
     
     # Sort set names for consistency
@@ -683,13 +704,13 @@ def plot_33s(data_dir, hidden=True, save_dir="Results/Analysis/Plots/3-3",
                 
             epoch_data = test_data[epoch_idx]
             
-            if '3:3' not in epoch_data:
+            if ratio not in epoch_data:
                 # If 3:3 data doesn't exist for this epoch, append NaN for all sets
                 for set_name in all_set_names:
                     file_data_by_set[set_name].append(np.nan)
                 continue
                 
-            ratio_data = epoch_data['3:3']
+            ratio_data = epoch_data[ratio]
             
             for set_name in all_set_names:
                 if set_name in ratio_data:
@@ -764,7 +785,7 @@ def plot_33s(data_dir, hidden=True, save_dir="Results/Analysis/Plots/3-3",
     ax.set_xlabel('Epoch', fontsize=12)
     ax.set_ylabel('% Modular Response', fontsize=12)
     layer = 'Hidden' if hidden else 'Output'
-    ax.set_title(f'3:3 Ratio Modular Response Across Epochs - {layer}', fontsize=14)
+    ax.set_title(f'{ratio} Ratio Modular Response Across Epochs - {layer}', fontsize=14)
     
     ax.set_ylim(0, 1)
     ax.grid(True, alpha=0.3)

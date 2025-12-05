@@ -1,0 +1,8 @@
+alt: true
+training_name: mod-lat2_5-5_missing-core
+special_dl: true
+
+num_mod_trials: 36
+num_total_trials: 60
+
+generate_rms: true

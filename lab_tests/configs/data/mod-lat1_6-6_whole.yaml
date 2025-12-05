@@ -1,0 +1,8 @@
+alt: false
+training_name: mod-lat1_6-6_whole
+special_dl: false
+
+num_mod_trials: 8
+num_total_trials: 16
+
+generate_rms: true

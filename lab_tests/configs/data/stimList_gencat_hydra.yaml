@@ -1,0 +1,8 @@
+alt: false
+training_name: stimList_gencat_hydra
+special_dl: false
+
+num_mod_trials: 48
+num_total_trials: 96
+
+generate_rms: false
