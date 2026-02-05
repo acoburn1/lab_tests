@@ -1,4 +1,4 @@
-# Matrix Analysis & Model Training Repository
+# Model Training Repository for Category Learning
 
 Purpose
 - Utilities, training code, and analysis scripts for producing and visualizing neural-network-derived co-occurrence / reference matrices and related statistics.
