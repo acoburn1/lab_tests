@@ -5,14 +5,14 @@ Purpose
 - Produces per-run `.npz` result files and generates analysis plots (correlation stats, PCA, epoch-averaged matrices).
 
 Quick start (high level)
-- Create a Python venv and install dependencies from `requirements.txt` (or install `numpy`, `matplotlib`, `torch`, `scipy`).
 - Run the main analysis script:
   - `python lab_tests/program.py`
   - Output and analysis are written under `Results/...` (configurable in `lab_tests/program.py`).
 
 Repository layout (key files / directories)
-- `lab_tests/program.py` — main orchestration for data prep, training calls, and analysis runs.
-- `lab_tests/Output/` — plotting and output helpers:
+- `program.py` — main orchestration for data prep, training calls, and analysis runs.
+- `configs/` — preset .yaml files for configuring data, model specs, and output.
+- `Output/` — plotting and output helpers:
   - `MatrixOutput.py` — loads per-run `.npz` results and creates epoch-averaged matrix plots.
   - `StatOutput.py`, `PCAOutput.py` — statistical and PCA plotting utilities.
 - `Model/` — model implementations (training/evaluation).
@@ -20,7 +20,6 @@ Repository layout (key files / directories)
 - `Results/Data/` — per-run `.npz` result files (e.g. `p_m1.npz`).
 - `Results/Analysis/` — generated plots and derived outputs.
 - `Data/` — input CSV files and reference matrices.
-- `requirements.txt` — (if present) lists Python package pins.
 
 Data / `.npz` format expectations
 - Each run saves a mapping of result arrays keyed by names (e.g. `hidden_matrices`).
