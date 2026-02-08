@@ -81,6 +81,7 @@
     <Content Include="configs\data\mod-lat2_5-5_missing-core.yaml" />
     <Content Include="configs\data\mod-lat2_5-5_whole.yaml" />
     <Content Include="configs\data\stimList_gencat_hydra.yaml" />
+    <Content Include="configs\model\f11_hls10-100_e60_m50_ie0t.yaml" />
     <Content Include="Data\Current\mod-lat1_6-6_missing-core.csv" />
     <Content Include="Data\Current\mod-lat2_5-5_missing-core.csv" />
     <Content Include="Data\Current\mod-lat2_5-5_whole.csv" />

@@ -1,5 +1,6 @@
 from mimetypes import suffix_map
 from sys import path_importer_cache
+from tkinter import HIDDEN
 from turtle import st
 import torch
 from torch import kl_div, nn
@@ -25,81 +26,97 @@ import Prep.SpecialDataLoader as SDL
 DATA_PARAMS = PAR.all_parameters
 CORR_DATA_PARAMS = PAR.correlation_parameters
 
-NUM_FEATURES = 11
-HIDDEN_LAYER_SIZE = 400
-NUM_EPOCHS = 60
-NUM_MODELS = 50
-
-INCLUDE_E0 = True
+DATA_CONFIG_DIR = "configs/data"
+MODEL_CONFIG_DIR = "configs/model"
 
 ### -----------
 
-data_config_dir = "configs/data"
-data_config_filenames = [f"{data_config_dir}/mod-lat1_6-6_whole.yaml", 
-                         f"{data_config_dir}/mod-lat2_5-5_whole.yaml",
-                         f"{data_config_dir}/mod-lat1_6-6_missing-core.yaml",
-                         f"{data_config_dir}/mod-lat2_5-5_missing-core.yaml",
-                         f"{data_config_dir}/stimList_gencat_hydra.yaml"]
+d_cfg_filename = f"{DATA_CONFIG_DIR}/stimList_gencat_hydra.yaml"
+d_cfg = get_config(d_cfg_filename)
 
-for d_cfg_fn in data_config_filenames[4:]:
+m_cfg_filename = f"{MODEL_CONFIG_DIR}/f11_hls10-100_e60_m50_ie0t.yaml"
+m_cfg = get_config(m_cfg_filename)
 
-    d_cfg = get_config(d_cfg_fn)
+print("/ ---- configuration ---- \\")
+for k, v in d_cfg.items():
+    print(f"| {k}: {v}")
+for k, v in m_cfg.items():
+    print(f"| {k}: {v}")
+print("\\ ----------------------- /")   
 
-    print("/ ---- configuration ---- \\")
-    for k, v in d_cfg.items():
-        print(f"| {k}: {v}")
-    print("\\ ----------------------- /")   
-
-    assert not (d_cfg["num_total_trials"] / d_cfg["num_mod_trials"] == 2 and d_cfg["special_dl"] or d_cfg["num_total_trials"] / d_cfg["num_mod_trials"] != 2 and not d_cfg["special_dl"]), "special data loader must be used when num mod and num lat trials ineq"
+assert not (d_cfg["num_total_trials"] / d_cfg["num_mod_trials"] == 2 and d_cfg["special_dl"] or d_cfg["num_total_trials"] / d_cfg["num_mod_trials"] != 2 and not d_cfg["special_dl"]), "special data loader must be used when num mod and num lat trials ineq"
         
-    ### config-dependent subglobals ---
+### config-dependent subglobals ---
 
-    NUM_TRAINING_TRIALS = d_cfg["num_total_trials"]
+ALT = d_cfg["alt"]
+TRAINING_NAME = d_cfg["training_name"]
+SPECIAL_DL = d_cfg["special_dl"]
+NUM_MOD_TRIALS = d_cfg["num_mod_trials"]
+NUM_TOTAL_TRIALS = d_cfg["num_total_trials"]
+GENRATE_RMS = d_cfg["generate_rms"]
 
-    DATA_FILENAME = f"Data/Current/{d_cfg['training_name']}.csv"
-    MODULAR_P_M_FILENAME = "Data/ReferenceMatrices/cooc-jaccard-mod.csv"
-    LATTICE_P_M_FILENAME = "Data/ReferenceMatrices/cooc-jaccard-lat.csv" if not d_cfg["alt"] else "Data/ReferenceMatrices/cooc-jaccard-lat-alt.csv"
-    DATA_DIR = f"Results/Data/Focused_04/{d_cfg['training_name']}"
-    ANALYSIS_DIR = f"Results/Analysis/Plots/one_h/{d_cfg['training_name']}"
+NUM_FEATURES = m_cfg["num_features"]
+HIDDEN_LAYER_RANGE = np.arange(m_cfg["hidden_layer_range"]["start"], m_cfg["hidden_layer_range"]["end"], m_cfg["hidden_layer_range"]["step"])
+LEARNING_RATE_RANGE = np.linspace(m_cfg["learning_rate"]["start"], m_cfg["learning_rate"]["end"], m_cfg["learning_rate"]["num"])
+NUM_EPOCHS = m_cfg["num_epochs"]
+NUM_MODELS = m_cfg["num_models"]
+INCLUDE_E0 = m_cfg["include_e0"]
 
-    ### -----------
+DATA_FILENAME = f"Data/Current/{TRAINING_NAME}.csv"
+MODULAR_P_M_FILENAME = "Data/ReferenceMatrices/cooc-jaccard-mod.csv"
+LATTICE_P_M_FILENAME = "Data/ReferenceMatrices/cooc-jaccard-lat.csv" if not ALT else "Data/ReferenceMatrices/cooc-jaccard-lat-alt.csv"
+DATA_DIR = f"Results/Data/Focused_04/{TRAINING_NAME}"
+ANALYSIS_DIR = f"Results/Analysis/Plots/one_h/{TRAINING_NAME}"
 
-    for path in [DATA_DIR, ANALYSIS_DIR]:
-        os.makedirs(path, exist_ok=True)
+### -----------
+
+for HLS in HIDDEN_LAYER_RANGE:
+    for LR in LEARNING_RATE_RANGE:
+
+        lr_str = f"{LR}".replace(".", "p")
+
+        DATA_DIR += f"_h{HLS}_lr{lr_str}"
+        ANALYSIS_DIR += f"_h{HLS}_lr{lr_str}"
+
+        print(f"Saving data to:     {DATA_DIR}")
+        print(f"Saving analysis to: {ANALYSIS_DIR}")
+
+        for path in [DATA_DIR, ANALYSIS_DIR]:
+            os.makedirs(path, exist_ok=True)
     
-    csv_data = DataUtils.load_csv_data(DATA_FILENAME, NUM_FEATURES)
+        csv_data = DataUtils.load_csv_data(DATA_FILENAME, NUM_FEATURES)
 
-    if d_cfg["special_dl"]:
-        training_inputs, training_outputs = DataUtils.training_csv_to_array(DATA_FILENAME, num_features=NUM_FEATURES)
-        dataloader = SDL.SpecialDataLoader(training_inputs, training_outputs, d_cfg["num_mod_trials"])
-    else:
-        dataloader = DataPreparer.get_dataloader(csv_data)
+        if d_cfg["special_dl"]:
+            training_inputs, training_outputs = DataUtils.training_csv_to_array(DATA_FILENAME, num_features=NUM_FEATURES)
+            dataloader = SDL.SpecialDataLoader(training_inputs, training_outputs, NUM_MOD_TRIALS)
+        else:
+            dataloader = DataPreparer.get_dataloader(csv_data)
 
-    if d_cfg["generate_rms"] == True:
-        modular_reference_matrix, lattice_reference_matrix = RM.generate_reference_matrices(csv_data.training_inputs, d_cfg["num_mod_trials"], method='jaccard')
-    else:
-        modular_reference_matrix, lattice_reference_matrix = DataUtils.get_probability_matrices_m_l(MODULAR_P_M_FILENAME, LATTICE_P_M_FILENAME);
+        if d_cfg["generate_rms"] == True:
+            modular_reference_matrix, lattice_reference_matrix = RM.generate_reference_matrices(csv_data.training_inputs, NUM_MOD_TRIALS, method='jaccard')
+        else:
+            modular_reference_matrix, lattice_reference_matrix = DataUtils.get_probability_matrices_m_l(MODULAR_P_M_FILENAME, LATTICE_P_M_FILENAME);
 
-    MO.save_generic_matrix(modular_reference_matrix, f"{ANALYSIS_DIR}/generated_rms", "mod.png")
-    MO.save_generic_matrix(lattice_reference_matrix, f"{ANALYSIS_DIR}/generated_rms", "lat.png")
+        MO.save_generic_matrix(modular_reference_matrix, f"{ANALYSIS_DIR}/generated_rms", "mod.png")
+        MO.save_generic_matrix(lattice_reference_matrix, f"{ANALYSIS_DIR}/generated_rms", "lat.png")
 
-    ### -----------
+        ### -----------
 
-    for i in range(1, NUM_MODELS + 1):
-        model = StandardModel(num_features=NUM_FEATURES, hidden_layer_size=HIDDEN_LAYER_SIZE, batch_size=NUM_TRAINING_TRIALS, num_epochs=NUM_EPOCHS, learning_rate=.04, loss_fn=nn.BCEWithLogitsLoss())
-        results = model.train_eval_test_P(dataloader, modular_reference_matrix, lattice_reference_matrix, DATA_PARAMS, include_e0=INCLUDE_E0, alt=d_cfg["alt"])
-        np.savez(f"{DATA_DIR}/p_m{i}.npz", **results)
-        print(i)
+        for i in range(1, NUM_MODELS + 1):
+            model = StandardModel(num_features=NUM_FEATURES, hidden_layer_size=HLS, batch_size=NUM_TOTAL_TRIALS, num_epochs=NUM_EPOCHS, learning_rate=LR, loss_fn=nn.BCEWithLogitsLoss())
+            results = model.train_eval_test_P(dataloader, modular_reference_matrix, lattice_reference_matrix, DATA_PARAMS, include_e0=INCLUDE_E0, alt=ALT)
+            np.savez(f"{DATA_DIR}/p_m{i}.npz", **results)
+            print(f"h{HLS} m{i}")
 
-    ### -----------
+        ### -----------
 
-    StatOutput.plot_stats_with_confidence_intervals(lr_str="4_50m", data_dir=DATA_DIR, save_dir=f"{ANALYSIS_DIR}/Correlations", data_parameters=CORR_DATA_PARAMS, include_e0=INCLUDE_E0)
-    StatOutput.plot_33s(data_dir=DATA_DIR, save_dir=f"{ANALYSIS_DIR}/3-3", include_e0=INCLUDE_E0, alt=d_cfg['alt'])
+        StatOutput.plot_stats_with_confidence_intervals(lr_str="4_50m", data_dir=DATA_DIR, save_dir=f"{ANALYSIS_DIR}/Correlations", data_parameters=CORR_DATA_PARAMS, include_e0=INCLUDE_E0)
+        StatOutput.plot_33s(data_dir=DATA_DIR, save_dir=f"{ANALYSIS_DIR}/3-3", include_e0=INCLUDE_E0, alt=ALT)
 
-    sig_epochs = StatOutput.get_significant_epochs(data_dir=DATA_DIR, data_parameters=CORR_DATA_PARAMS, degf=3)
+        sig_epochs = StatOutput.get_significant_epochs(data_dir=DATA_DIR, data_parameters=CORR_DATA_PARAMS, degf=3)
 
-    for sig_epoch in sig_epochs: 
-        StatOutput.plot_s_curve(data_dir=DATA_DIR, save_dir=f"{ANALYSIS_DIR}/S-Curves", epoch=sig_epoch, include_e0=INCLUDE_E0, alt=d_cfg['alt'])
-        PCAOutput.plot_k95_bars_epoch(data_dir=DATA_DIR, epoch=sig_epoch, save_dir=f"{ANALYSIS_DIR}/PCA/k95_bars", num_features=NUM_FEATURES, include_e0=INCLUDE_E0)
+        for sig_epoch in sig_epochs: 
+            StatOutput.plot_s_curve(data_dir=DATA_DIR, save_dir=f"{ANALYSIS_DIR}/S-Curves", epoch=sig_epoch, include_e0=INCLUDE_E0, alt=ALT)
+            PCAOutput.plot_k95_bars_epoch(data_dir=DATA_DIR, epoch=sig_epoch, save_dir=f"{ANALYSIS_DIR}/PCA/k95_bars", num_features=NUM_FEATURES, include_e0=INCLUDE_E0)
 
-    MO.save_all_epoch_matrices(DATA_DIR, f"{ANALYSIS_DIR}/Matrices", NUM_EPOCHS, INCLUDE_E0)
+        MO.save_all_epoch_matrices(DATA_DIR, f"{ANALYSIS_DIR}/Matrices", NUM_EPOCHS, INCLUDE_E0)
